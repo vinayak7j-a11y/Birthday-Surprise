@@ -82,10 +82,12 @@
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed - (opts.upBias || 2),
         g: opts.gravity ?? 0.18,
+        drag: 0.988,
         life: 0,
         maxLife: 70 + Math.random() * 50,
         size: 3 + Math.random() * 4,
         color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        shape: Math.random() < 0.35 ? "circle" : "rect",
         spin: Math.random() * 0.3 - 0.15,
         rot: Math.random() * Math.PI
       });
@@ -100,16 +102,25 @@
     particles.forEach(p => {
       p.life++;
       p.vy += p.g;
+      p.vx *= p.drag;
+      p.vy *= p.drag > 0.995 ? p.drag : 0.997; // gentler drag on vertical fall
       p.x += p.vx;
       p.y += p.vy;
       p.rot += p.spin;
-      const alpha = Math.max(0, 1 - p.life / p.maxLife);
+      const fadeStart = p.maxLife * 0.7;
+      const alpha = p.life < fadeStart ? 1 : Math.max(0, 1 - (p.life - fadeStart) / (p.maxLife - fadeStart));
       fxCtx.save();
       fxCtx.globalAlpha = alpha;
       fxCtx.translate(p.x, p.y);
       fxCtx.rotate(p.rot);
       fxCtx.fillStyle = p.color;
-      fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      if (p.shape === "circle"){
+        fxCtx.beginPath();
+        fxCtx.arc(0, 0, p.size * 0.5, 0, Math.PI * 2);
+        fxCtx.fill();
+      } else {
+        fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      }
       fxCtx.restore();
     });
     particles = particles.filter(p => p.life < p.maxLife && p.y < window.innerHeight + 40);
@@ -195,11 +206,14 @@
       source.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
       micHint.textContent = "listening... go on, blow";
+      let loudFrames = 0;
       const check = () => {
         if (blown) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        if (avg > 42) extinguish();
+        // require a short sustained gust, not a single spike, to avoid false triggers
+        loudFrames = avg > 40 ? loudFrames + 1 : 0;
+        if (loudFrames >= 3) extinguish();
         micRAF = requestAnimationFrame(check);
       };
       check();
@@ -222,7 +236,7 @@
      6. Wax seal → letter
   ---------------------------------------------------------- */
   const seal = document.getElementById("seal");
-  const sealHint = document.getElementById("seal-hint") || document.querySelector(".seal-hint");
+  const sealHint = document.querySelector(".seal-hint");
   const letter = document.getElementById("letter");
   function openLetter(){
     if (seal.classList.contains("opened")) return;
@@ -290,7 +304,21 @@
   wishInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendWish(); });
 
   /* ----------------------------------------------------------
-     9. Kick things off if curtain is skipped (e.g. deep link)
+     9. Subtle pointer parallax on the starfield (desktop only,
+        skipped for touch and reduced-motion)
+  ---------------------------------------------------------- */
+  const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (canHover && !reduceMotion){
+    window.addEventListener("pointermove", (e) => {
+      const px = (e.clientX / window.innerWidth - 0.5) * 14;
+      const py = (e.clientY / window.innerHeight - 0.5) * 14;
+      sky.style.setProperty("--px", px.toFixed(2));
+      sky.style.setProperty("--py", py.toFixed(2));
+    }, { passive: true });
+  }
+
+  /* ----------------------------------------------------------
+     10. Kick things off if curtain is skipped (e.g. deep link)
   ---------------------------------------------------------- */
   revealCheck();
 })();

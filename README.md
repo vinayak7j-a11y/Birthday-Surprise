@@ -27,6 +27,16 @@ A single-page, no-backend birthday surprise site. Pure HTML/CSS/JS, no build ste
 ## To open locally
 Just open `index.html` in a browser — no server required. (Mic access requires `https://` or `localhost` in most browsers if you deploy it; opening the raw file works for everything except the mic-blow feature in some browsers.)
 
+## Polish pass (v1.1)
+- Fixed a token typo that made the seal's spacing fall back to a default instead of using the design system.
+- Letter reveal now animates to its *actual* content height (grid-template-rows trick) instead of a hardcoded max-height that could clip long text; letter lines cascade in one at a time.
+- Confetti/spark physics got air drag and mixed circle/rect shapes for a less mechanical burst; particles fade only in their last 30% of life instead of a linear fade the whole time.
+- Mic-blow detection now requires ~3 consecutive loud frames (a short sustained gust) instead of a single spike, cutting down on false triggers from background noise.
+- Added button press micro-interactions, mobile tap-highlight removal, and `touch-action: manipulation` on balloons/seal so taps feel instant on phones.
+- Scene headings now cascade in with a slight delay after the section itself fades in, instead of everything appearing at once.
+- Added a subtle pointer-parallax on the starfield for desktop pointer users only (skipped on touch devices and when reduced-motion is on).
+- Cross-browser fallback added for the gradient name text on older Firefox/Safari.
+
 ## Status: complete
 All planned sections are built and wired up:
 - [x] Structure/content
