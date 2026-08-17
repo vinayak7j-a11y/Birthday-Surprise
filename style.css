@@ -48,6 +48,7 @@ body{
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
+body:has(#main[hidden]){ overflow-y: hidden; height: 100svh; }
 h1,h2,h3{ font-family: var(--serif); font-weight: 600; margin: 0; }
 p{ margin:0; }
 button{ font-family: var(--sans); cursor: pointer; }
@@ -168,7 +169,22 @@ button{ font-family: var(--sans); cursor: pointer; }
   margin-bottom: var(--space-4);
 }
 .cake-rig{ margin-bottom: var(--space-4); filter: drop-shadow(0 30px 40px rgba(0,0,0,0.45)); }
-.flame{ transform-origin: 160px 108px; }
+.flame{ transform-origin: 160px 108px; animation: flicker 2.2s ease-in-out infinite; }
+#flameGlow{ animation: glow 2.2s ease-in-out infinite; }
+
+@keyframes flicker{
+  0%,100%{ transform: rotate(0deg) scaleY(1); }
+  20%{ transform: rotate(-3deg) scaleY(1.04); }
+  45%{ transform: rotate(2deg) scaleY(0.96); }
+  70%{ transform: rotate(-1.5deg) scaleY(1.05); }
+  85%{ transform: rotate(1deg) scaleY(0.98); }
+}
+@keyframes glow{
+  0%,100%{ opacity: 0.18; }
+  50%{ opacity: 0.28; }
+}
+
+.flame, #flameGlow{ transition: opacity 0.5s var(--ease); }
 
 #hero.blown .flame{ opacity: 0; }
 #hero.blown #flameGlow{ opacity: 0; }
