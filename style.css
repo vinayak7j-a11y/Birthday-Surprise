@@ -36,19 +36,22 @@
 }
 
 /* ============================================================
-   RESET / BASE
+   RESET / BASE — the whole experience is a fixed, full-screen
+   slide stack now (no page scrolling, no scroll-triggered
+   reveals), so it can't silently fail on browsers that don't
+   support :has() or the 100svh unit.
    ============================================================ */
 *,*::before,*::after{ box-sizing: border-box; }
-html{ scroll-behavior: smooth; }
+html, body{ height: 100%; }
 body{
   margin:0;
+  overflow: hidden;
+  height: 100vh;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--sans);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
 }
-body:has(#main[hidden]){ overflow-y: hidden; height: 100svh; }
 h1,h2,h3{ font-family: var(--serif); font-weight: 600; margin: 0; }
 p{ margin:0; }
 button{ font-family: var(--sans); cursor: pointer; }
@@ -58,6 +61,8 @@ button{ font-family: var(--sans); cursor: pointer; }
   position: fixed; inset: 0; width: 100%; height: 100%;
   z-index: 0; pointer-events: none;
   background: radial-gradient(ellipse at 50% -10%, #23244a 0%, var(--ink) 55%, var(--ink-deep) 100%);
+  transform: translate3d(calc(var(--px, 0) * 1px), calc(var(--py, 0) * 1px), 0);
+  transition: transform 0.6s var(--ease);
 }
 
 #fx{
@@ -81,14 +86,14 @@ button{ font-family: var(--sans); cursor: pointer; }
 }
 
 /* ============================================================
-   CURTAIN
+   CURTAIN — sits above every slide until dismissed
    ============================================================ */
 .screen{
-  position: relative; z-index: 5;
-  min-height: 100svh;
+  position: fixed; inset: 0; z-index: 15;
   display: flex; align-items: center; justify-content: center;
   text-align: center;
   padding: var(--space-3);
+  background: var(--ink);
 }
 .curtain-inner{ max-width: 32rem; }
 .curtain-name{
@@ -96,10 +101,11 @@ button{ font-family: var(--sans); cursor: pointer; }
   line-height: 1;
   background: linear-gradient(180deg, var(--paper) 0%, var(--gold) 120%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-text-fill-color: transparent;
   margin-bottom: var(--space-4);
 }
+#curtain{ transition: opacity 0.9s var(--ease), transform 0.9s var(--ease); }
 #curtain.leaving{
-  transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
   opacity: 0; transform: translateY(-24px) scale(0.98);
   pointer-events: none;
 }
@@ -120,10 +126,12 @@ button{ font-family: var(--sans); cursor: pointer; }
   transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
   user-select: none;
   -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  will-change: transform;
 }
 .btn-primary:hover{ transform: translateY(-2px); box-shadow: 0 12px 34px -6px rgba(232,88,58,0.65); }
-.btn-primary:active{ transform: translateY(0) scale(0.97); }
+.btn-primary:active{ transform: translateY(0) scale(0.96); }
 
 .btn-ghost{
   background: transparent;
@@ -135,22 +143,38 @@ button{ font-family: var(--sans); cursor: pointer; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   transition: border-color 0.3s var(--ease), background 0.3s var(--ease), transform 0.25s var(--ease);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  will-change: transform;
 }
 .btn-ghost:hover{ border-color: var(--gold); background: rgba(216,180,99,0.08); transform: translateY(-1px); }
+.btn-ghost:active{ transform: scale(0.96); }
+
+.restart-btn{ margin-top: var(--space-3); }
 
 /* ============================================================
-   SCENES (shared)
+   SLIDES — one full-screen "page" at a time, JS-controlled.
+   All slides share the same fixed box; only .active is visible
+   and interactive. This is what actually connects the buttons
+   to "go to the next thing" instead of relying on scrolling.
    ============================================================ */
-.scene{
-  position: relative; z-index: 5;
-  min-height: 100svh;
+.slide{
+  position: fixed; inset: 0; z-index: 5;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   text-align: center;
-  padding: var(--space-5) var(--space-3);
-  opacity: 0; transform: translateY(28px);
-  transition: opacity 0.9s var(--ease), transform 0.9s var(--ease);
+  padding: var(--space-5) var(--space-3) 7rem;
+  overflow-y: auto;
+  opacity: 0;
+  transform: translateY(24px);
+  pointer-events: none;
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
 }
-.scene.in-view{ opacity: 1; transform: translateY(0); }
+.slide.active{
+  opacity: 1; transform: translateY(0);
+  pointer-events: auto;
+  z-index: 6;
+}
+.slide.prev{ transform: translateY(-24px); }
 
 .section-title{
   font-size: clamp(1.8rem, 5vw, 2.6rem);
@@ -158,6 +182,17 @@ button{ font-family: var(--sans); cursor: pointer; }
   max-width: 34rem;
   margin-bottom: var(--space-4);
 }
+
+/* Staggered reveal of each slide's heading once it becomes active */
+.slide .eyebrow, .slide .hero-title, .slide .section-title{
+  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+}
+.slide:not(.active) .eyebrow{ opacity: 0; transform: translateY(10px); }
+.slide:not(.active) .hero-title,
+.slide:not(.active) .section-title{ opacity: 0; transform: translateY(16px); }
+.slide.active .eyebrow{ transition-delay: 0.1s; }
+.slide.active .hero-title,
+.slide.active .section-title{ transition-delay: 0.2s; }
 
 /* ============================================================
    HERO / CAKE
@@ -185,7 +220,6 @@ button{ font-family: var(--sans); cursor: pointer; }
 }
 
 .flame, #flameGlow{ transition: opacity 0.5s var(--ease); }
-
 #hero.blown .flame{ opacity: 0; }
 #hero.blown #flameGlow{ opacity: 0; }
 
@@ -202,6 +236,7 @@ button{ font-family: var(--sans); cursor: pointer; }
   box-shadow: 0 10px 26px -6px rgba(232,88,58,0.55), inset 0 -4px 8px rgba(0,0,0,0.25);
   cursor: pointer;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition: transform 0.4s var(--ease), opacity 0.5s var(--ease);
   margin-bottom: var(--space-2);
 }
@@ -222,29 +257,30 @@ button{ font-family: var(--sans); cursor: pointer; }
   text-align: left;
   box-shadow: 0 30px 60px -20px rgba(0,0,0,0.55);
   opacity: 0; transform: translateY(18px) scale(0.98);
-  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease), grid-template-rows 0.7s var(--ease), margin 0.7s var(--ease);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease), grid-template-rows 0.7s var(--ease);
 }
-.letter > .letter-inner{ overflow: hidden; padding: 0 var(--space-3); min-height: 0; }
-.letter.open{
-  opacity: 1; transform: translateY(0) scale(1);
-  grid-template-rows: 1fr;
-}
-.letter.open > .letter-inner{ padding: var(--space-4) var(--space-3); }
-.letter-line{ font-family: var(--serif); font-size: 1.05rem; line-height: 1.7; margin-bottom: var(--space-2);
+.letter-inner{ overflow: hidden; padding: 0 var(--space-3); min-height: 0; }
+.letter.open{ opacity: 1; transform: translateY(0) scale(1); grid-template-rows: 1fr; }
+.letter.open .letter-inner{ padding: var(--space-4) var(--space-3); }
+
+.letter-line{
+  font-family: var(--serif); font-size: 1.05rem; line-height: 1.7; margin-bottom: var(--space-2);
   opacity: 0; transform: translateY(8px);
   transition: opacity 0.55s var(--ease), transform 0.55s var(--ease);
 }
-.letter-sign{ font-family: var(--serif); font-style: italic; color: var(--ember); margin-top: var(--space-2);
+.letter-sign{
+  font-family: var(--serif); font-style: italic; color: var(--ember); margin-top: var(--space-2);
   opacity: 0; transform: translateY(8px);
   transition: opacity 0.55s var(--ease), transform 0.55s var(--ease);
 }
 .letter.open .letter-line,
 .letter.open .letter-sign{ opacity: 1; transform: translateY(0); }
 .letter.open .letter-line:nth-child(1){ transition-delay: 0.15s; }
-.letter.open .letter-line:nth-child(2){ transition-delay: 0.25s; }
-.letter.open .letter-line:nth-child(3){ transition-delay: 0.35s; }
-.letter.open .letter-line:nth-child(4){ transition-delay: 0.45s; }
-.letter.open .letter-sign{ transition-delay: 0.55s; }
+.letter.open .letter-line:nth-child(2){ transition-delay: 0.28s; }
+.letter.open .letter-line:nth-child(3){ transition-delay: 0.41s; }
+.letter.open .letter-line:nth-child(4){ transition-delay: 0.54s; }
+.letter.open .letter-line:nth-child(5){ transition-delay: 0.67s; }
+.letter.open .letter-sign{ transition-delay: 0.8s; }
 
 /* ============================================================
    MEMORY REEL
@@ -266,7 +302,9 @@ button{ font-family: var(--sans); cursor: pointer; }
   border-radius: 16px;
   padding: var(--space-1);
   box-shadow: 0 20px 40px -18px rgba(0,0,0,0.5);
+  transition: transform 0.35s var(--ease);
 }
+.mem-card:hover{ transform: translateY(-6px); }
 .mem-photo{
   width: 100%; aspect-ratio: 4/5;
   border-radius: 12px;
@@ -292,6 +330,7 @@ button{ font-family: var(--sans); cursor: pointer; }
   cursor: pointer;
   animation: rise linear forwards;
   touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 .balloon::after{
   content: ""; position: absolute; left: 50%; bottom: -22px;
@@ -327,51 +366,68 @@ button{ font-family: var(--sans); cursor: pointer; }
 .wish-input:focus{ outline: none; border-color: var(--gold); }
 
 /* ============================================================
-   RESPONSIVE
+   SLIDE NAV — dots + continue control, fixed above everything.
+   "continue" is always clickable (nobody gets stuck), but turns
+   from a quiet skip link into a solid, inviting button (.ready)
+   once that slide's own interaction is done — and at that point
+   it also auto-advances on its own after a short pause.
    ============================================================ */
-@media (max-width: 420px){
-  .scene{ padding: var(--space-4) var(--space-2); }
-  .mem-card{ width: 180px; }
+#slideNav{
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+  display: flex; flex-direction: column; align-items: center; gap: 0.9rem;
+  padding: 0 var(--space-3) 1.6rem;
+  pointer-events: none;
+}
+.slide-dots{ display: flex; gap: 0.4rem; }
+.slide-dots .dot{
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(251,246,236,0.25);
+  transition: background 0.3s var(--ease), transform 0.3s var(--ease);
+}
+.slide-dots .dot.active{ background: var(--gold); transform: scale(1.4); }
+
+.next-btn{
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 0.5rem;
+  background: rgba(20,21,43,0.6);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(216,180,99,0.3);
+  color: var(--mist);
+  border-radius: 999px;
+  padding: 0.6rem 1.3rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  transition: opacity 0.3s var(--ease), background 0.3s var(--ease), color 0.3s var(--ease), transform 0.3s var(--ease);
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.next-btn .next-chevron{ transition: transform 0.3s var(--ease); }
+.next-btn:hover{ opacity: 0.9; }
+.next-btn:active{ transform: scale(0.96); }
+.next-btn.ready{
+  opacity: 1;
+  background: linear-gradient(180deg, var(--flame-outer), var(--ember));
+  color: var(--ink-deep);
+  border-color: transparent;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+@keyframes nudge{
+  0%,100%{ transform: translateY(0); }
+  50%{ transform: translateY(4px); }
 }
 
 /* ============================================================
-   POLISH PASS: cross-browser text-fill fallback, richer motion,
-   button micro-interactions, mobile touch fixes
+   RESPONSIVE
    ============================================================ */
-.curtain-name{
-  -webkit-text-fill-color: transparent;
-}
-
-.btn-primary, .btn-ghost{
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  will-change: transform;
-}
-.btn-primary:active, .btn-ghost:active{ transform: scale(0.96); }
-
-.balloon{ touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-
-.mem-card{ transition: transform 0.35s var(--ease); }
-.mem-card:hover{ transform: translateY(-6px); }
-
-/* Staggered child reveal within a scene once it enters view */
-.scene .eyebrow, .scene .hero-title, .scene .section-title{
-  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
-}
-.scene:not(.in-view) .eyebrow{ opacity: 0; transform: translateY(10px); }
-.scene:not(.in-view) .hero-title,
-.scene:not(.in-view) .section-title{ opacity: 0; transform: translateY(16px); }
-.scene.in-view .eyebrow{ transition-delay: 0.05s; }
-.scene.in-view .hero-title,
-.scene.in-view .section-title{ transition-delay: 0.15s; }
-
-/* Parallax layer for the starfield canvas (JS sets these vars) */
-#sky{
-  transform: translate3d(calc(var(--px, 0) * 1px), calc(var(--py, 0) * 1px), 0);
-  transition: transform 0.6s var(--ease);
+@media (max-width: 420px){
+  .slide{ padding: var(--space-4) var(--space-2) 7rem; }
+  .mem-card{ width: 180px; }
 }
 
 @media (prefers-reduced-motion: reduce){
   .mem-card:hover{ transform: none; }
   #sky{ transform: none !important; }
+  .next-btn.ready{ animation: none; }
 }

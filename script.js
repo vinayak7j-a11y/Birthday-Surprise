@@ -4,11 +4,46 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ----------------------------------------------------------
-     0. Personalization hook (edit these two lines)
+     0. EDIT ME — everything personal lives here in one place.
+        {name} inside a letter line gets swapped for CONFIG.name.
+        You can also override the name per-link with ?name=Priya
   ---------------------------------------------------------- */
-  const NAME = new URLSearchParams(location.search).get("name") || "You";
-  document.getElementById("curtainName").textContent = NAME;
-  document.getElementById("letterName").textContent = NAME;
+  const CONFIG = {
+    name: new URLSearchParams(location.search).get("name") || "You",
+    letter: [
+      "Dear {name},",
+      "Another year, and somehow you've made every part of it better just by being in it.",
+      "This page isn't much — a candle, a few photos, a little noise. But I wanted you to have something that was only yours today.",
+      "Happy birthday. I hope this year is loud in the ways you love and quiet in the ways you need."
+    ],
+    signature: "— with love",
+    // Optional captions under the 4 memory photos. Leave any entry
+    // as "" to keep the "replace with a photo" placeholder text.
+    memoryCaptions: ["", "", "", ""]
+  };
+
+  document.getElementById("curtainName").textContent = CONFIG.name;
+
+  function renderLetter(){
+    const inner = document.getElementById("letterInner");
+    inner.innerHTML = "";
+    CONFIG.letter.forEach(line => {
+      const p = document.createElement("p");
+      p.className = "letter-line";
+      p.textContent = line.replace("{name}", CONFIG.name);
+      inner.appendChild(p);
+    });
+    const sign = document.createElement("p");
+    sign.className = "letter-sign";
+    sign.textContent = CONFIG.signature;
+    inner.appendChild(sign);
+  }
+  renderLetter();
+
+  document.querySelectorAll(".mem-caption").forEach(el => {
+    const i = Number(el.dataset.i);
+    if (CONFIG.memoryCaptions[i]) el.textContent = CONFIG.memoryCaptions[i];
+  });
 
   /* ----------------------------------------------------------
      1. Ambient starfield (canvas, behind everything)
@@ -61,6 +96,16 @@
     sizeCanvas(fx);
   });
 
+  const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  if (canHover && !reduceMotion){
+    window.addEventListener("pointermove", (e) => {
+      const px = (e.clientX / window.innerWidth - 0.5) * 14;
+      const py = (e.clientY / window.innerHeight - 0.5) * 14;
+      sky.style.setProperty("--px", px.toFixed(2));
+      sky.style.setProperty("--py", py.toFixed(2));
+    }, { passive: true });
+  }
+
   /* ----------------------------------------------------------
      2. FX canvas: confetti + sparks, shared by candle/seal/balloons
   ---------------------------------------------------------- */
@@ -103,7 +148,6 @@
       p.life++;
       p.vy += p.g;
       p.vx *= p.drag;
-      p.vy *= p.drag > 0.995 ? p.drag : 0.997; // gentler drag on vertical fall
       p.x += p.vx;
       p.y += p.vy;
       p.rot += p.spin;
@@ -133,26 +177,59 @@
   }
 
   /* ----------------------------------------------------------
-     3. Curtain → main
+     3. Slide controller — this is the piece that was missing
+        before: it's what actually connects each button to
+        "move on to the next part of the story."
   ---------------------------------------------------------- */
-  const curtain = document.getElementById("curtain");
-  const main = document.getElementById("main");
-  document.getElementById("enterBtn").addEventListener("click", () => {
-    curtain.classList.add("leaving");
-    main.hidden = false;
-    document.body.style.overflow = "";
-    setTimeout(() => { curtain.style.display = "none"; }, reduceMotion ? 0 : 950);
-    revealCheck();
-  }, { once: true });
+  const SLIDES = ["hero", "letterScene", "memories", "balloons", "closing"];
+  const slideEls = SLIDES.map(id => document.getElementById(id));
+  const nextBtn = document.getElementById("nextBtn");
+  const slideDots = document.getElementById("slideDots");
+  let idx = -1;
+  let autoTimer = null;
+
+  SLIDES.forEach(() => {
+    const d = document.createElement("span");
+    d.className = "dot";
+    slideDots.appendChild(d);
+  });
+  const dotEls = Array.from(slideDots.children);
+
+  function armAuto(ms){
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(nextSlide, ms);
+  }
+  function disarmAuto(){ clearTimeout(autoTimer); }
+  function setReady(){ nextBtn.classList.add("ready"); }
+
+  function showSlide(i){
+    disarmAuto();
+    i = Math.max(0, Math.min(SLIDES.length - 1, i));
+    idx = i;
+    slideEls.forEach((el, n) => {
+      el.classList.toggle("active", n === i);
+      el.classList.toggle("prev", n < i);
+    });
+    dotEls.forEach((d, n) => d.classList.toggle("active", n === i));
+    nextBtn.classList.remove("ready");
+    nextBtn.hidden = SLIDES[i] === "closing";
+    const enter = onEnter[SLIDES[i]];
+    if (enter) enter();
+  }
+  function nextSlide(){ if (idx < SLIDES.length - 1) showSlide(idx + 1); }
+  nextBtn.addEventListener("click", nextSlide);
 
   /* ----------------------------------------------------------
-     4. Scroll reveal for each scene
+     4. Curtain → first slide
   ---------------------------------------------------------- */
-  const scenes = () => Array.from(document.querySelectorAll(".scene"));
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add("in-view"); });
-  }, { threshold: 0.28 });
-  function revealCheck(){ scenes().forEach(s => io.observe(s)); }
+  const curtain = document.getElementById("curtain");
+  const stage = document.getElementById("stage");
+  document.getElementById("enterBtn").addEventListener("click", () => {
+    curtain.classList.add("leaving");
+    stage.hidden = false;
+    setTimeout(() => { curtain.style.display = "none"; }, reduceMotion ? 0 : 950);
+    showSlide(0);
+  }, { once: true });
 
   /* ----------------------------------------------------------
      5. Candle: hold-to-blow (pointer) + microphone blow detection
@@ -163,6 +240,7 @@
   const micHint = document.getElementById("micHint");
   const cakeSvg = document.getElementById("cakeSvg");
   let blown = false;
+  let micStarted = false;
   let holdTimer = null;
   let holdProgress = 0;
 
@@ -175,6 +253,8 @@
     const rect = cakeSvg.getBoundingClientRect();
     burst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.29, { count: 90, speed: 8, upBias: 6 });
     stopMic();
+    setReady();
+    armAuto(1500);
   }
 
   function startHold(){
@@ -186,17 +266,17 @@
       if (holdProgress > 6) { extinguish(); clearInterval(holdTimer); }
     }, 60);
   }
-  function cancelHold(){ clearInterval(holdTimer); }
+  function cancelHold(){ clearInterval(holdTimer); holdTimer = null; }
 
   blowBtn.addEventListener("pointerdown", startHold);
   blowBtn.addEventListener("pointerup", cancelHold);
   blowBtn.addEventListener("pointerleave", cancelHold);
   blowBtn.addEventListener("click", () => { if (holdProgress <= 6) extinguish(); });
 
-  // Microphone-based blow detection (progressive enhancement)
   let audioCtx, analyser, micStream, micRAF;
   async function initMic(){
-    if (!navigator.mediaDevices?.getUserMedia) return;
+    if (micStarted || !navigator.mediaDevices?.getUserMedia) return;
+    micStarted = true;
     try{
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -211,7 +291,6 @@
         if (blown) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        // require a short sustained gust, not a single spike, to avoid false triggers
         loudFrames = avg > 40 ? loudFrames + 1 : 0;
         if (loudFrames >= 3) extinguish();
         micRAF = requestAnimationFrame(check);
@@ -226,11 +305,6 @@
     if (micStream) micStream.getTracks().forEach(t => t.stop());
     if (audioCtx) audioCtx.close();
   }
-  // Ask for mic once the hero scrolls into view
-  const heroObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting){ initMic(); heroObserver.disconnect(); } });
-  }, { threshold: 0.5 });
-  heroObserver.observe(heroSection);
 
   /* ----------------------------------------------------------
      6. Wax seal → letter
@@ -245,6 +319,9 @@
     letter.classList.add("open");
     const rect = seal.getBoundingClientRect();
     burst(rect.left + rect.width / 2, rect.top + rect.height / 2, { count: 26, speed: 4, upBias: 1 });
+    setReady();
+    // give them time to actually read it before auto-advancing
+    armAuto(1400 + CONFIG.letter.length * 1500);
   }
   seal.addEventListener("click", openLetter);
   seal.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openLetter(); } });
@@ -255,6 +332,7 @@
   const balloonField = document.getElementById("balloonField");
   const balloonColors = ["#E8583A", "#F2A340", "#D8B463", "#9A9DC4", "#FBF6EC"];
   let balloonsSpawned = false;
+  let poppedCount = 0;
 
   function spawnBalloon(delay){
     const el = document.createElement("div");
@@ -275,6 +353,8 @@
     burst(rect.left + rect.width / 2, rect.top + rect.height / 2, { count: 34, speed: 5, upBias: 1 });
     el.classList.add("popped");
     setTimeout(() => el.remove(), 300);
+    poppedCount += 1;
+    if (poppedCount >= 2) setReady();
   }
 
   function spawnField(){
@@ -283,10 +363,6 @@
     for (let i = 0; i < 10; i++) spawnBalloon(i * 0.5);
     setInterval(() => { if (balloonField.childElementCount < 6) spawnBalloon(0); }, 2200);
   }
-  const balloonObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting){ spawnField(); } });
-  }, { threshold: 0.3 });
-  balloonObserver.observe(document.getElementById("balloons"));
 
   /* ----------------------------------------------------------
      8. Wish input: send it up as a little firework
@@ -303,22 +379,18 @@
   wishBtn.addEventListener("click", sendWish);
   wishInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendWish(); });
 
-  /* ----------------------------------------------------------
-     9. Subtle pointer parallax on the starfield (desktop only,
-        skipped for touch and reduced-motion)
-  ---------------------------------------------------------- */
-  const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  if (canHover && !reduceMotion){
-    window.addEventListener("pointermove", (e) => {
-      const px = (e.clientX / window.innerWidth - 0.5) * 14;
-      const py = (e.clientY / window.innerHeight - 0.5) * 14;
-      sky.style.setProperty("--px", px.toFixed(2));
-      sky.style.setProperty("--py", py.toFixed(2));
-    }, { passive: true });
-  }
+  document.getElementById("restartBtn").addEventListener("click", () => {
+    location.href = location.pathname + location.search;
+  });
 
   /* ----------------------------------------------------------
-     10. Kick things off if curtain is skipped (e.g. deep link)
+     9. What happens when each slide becomes active
   ---------------------------------------------------------- */
-  revealCheck();
+  const onEnter = {
+    hero(){ initMic(); },
+    letterScene(){},
+    memories(){ setReady(); armAuto(4500); },
+    balloons(){ spawnField(); armAuto(9000); },
+    closing(){}
+  };
 })();

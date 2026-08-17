@@ -12,10 +12,8 @@
 </head>
 <body>
 
-<!-- Ambient night sky, sits behind everything -->
 <canvas id="sky" aria-hidden="true"></canvas>
 
-<!-- Curtain: first paint, asks for a name before anything else -->
 <section id="curtain" class="screen">
   <div class="curtain-inner">
     <p class="eyebrow">a little something for</p>
@@ -26,30 +24,23 @@
   </div>
 </section>
 
-<main id="main" hidden>
+<main id="stage" hidden>
 
-  <!-- 1. Hero: the cake, the thesis of the whole page -->
-  <section id="hero" class="scene" aria-label="Make a wish">
+  <section id="hero" class="slide" aria-label="Make a wish">
     <p class="eyebrow">one candle, one wish</p>
     <h2 class="hero-title">Blow it out<br>when you're ready.</h2>
 
     <div id="cakeRig" class="cake-rig">
       <svg id="cakeSvg" viewBox="0 0 320 340" width="280" height="298" role="img" aria-label="A single lit candle on a birthday cake">
-        <!-- plate -->
         <ellipse cx="160" cy="300" rx="130" ry="14" fill="var(--ink-soft)"/>
-        <!-- cake tiers -->
         <rect x="70" y="230" width="180" height="60" rx="10" fill="var(--tier-2)"/>
         <rect x="95" y="180" width="130" height="60" rx="10" fill="var(--tier-1)"/>
-        <!-- drip -->
         <path d="M95 190 q10 20 0 34 q10 16 0 30 M225 190 q-10 20 0 34 q-10 16 0 30" stroke="var(--frosting)" stroke-width="6" fill="none" stroke-linecap="round" opacity="0.6"/>
-        <!-- candle -->
         <rect x="152" y="120" width="16" height="66" rx="4" fill="var(--candle)"/>
         <rect x="152" y="120" width="16" height="10" rx="4" fill="var(--candle-stripe)"/>
         <rect x="152" y="140" width="16" height="10" rx="4" fill="var(--candle-stripe)"/>
         <rect x="152" y="160" width="16" height="10" rx="4" fill="var(--candle-stripe)"/>
-        <!-- wick -->
         <line x1="160" y1="120" x2="160" y2="110" stroke="#3a3320" stroke-width="2"/>
-        <!-- flame group, animated in CSS/JS -->
         <g id="flame" class="flame">
           <ellipse cx="160" cy="94" rx="10" ry="16" fill="var(--flame-outer)"/>
           <ellipse cx="160" cy="98" rx="5.5" ry="9" fill="var(--flame-inner)"/>
@@ -64,53 +55,54 @@
     <p id="micHint" class="fine-print">tip: allow your mic and actually blow — it works</p>
   </section>
 
-  <!-- 2. Wax seal → letter -->
-  <section id="letterScene" class="scene" aria-label="A letter">
+  <section id="letterScene" class="slide" aria-label="A letter">
     <div id="seal" class="seal" role="button" tabindex="0" aria-label="Break the seal to read your letter">
       <div class="seal-stamp">✦</div>
     </div>
     <p class="fine-print seal-hint">press the seal</p>
 
-    <article id="letter" class="letter">
-      <div class="letter-inner">
-        <p class="letter-line">Dear <span id="letterName">You</span>,</p>
-        <p class="letter-line">Another year, and somehow you've made every part of it better just by being in it.</p>
-        <p class="letter-line">This page isn't much — a candle, a few photos, a little noise. But I wanted you to have something that was only yours today.</p>
-        <p class="letter-line">Happy birthday. I hope this year is loud in the ways you love and quiet in the ways you need.</p>
-        <p class="letter-sign">— with love</p>
+    <article id="letter" class="letter" aria-live="polite">
+      <div class="letter-inner" id="letterInner">
+        <!-- lines injected from CONFIG.letter in script.js -->
       </div>
     </article>
   </section>
 
-  <!-- 3. Memory reel -->
-  <section id="memories" class="scene" aria-label="Memories">
+  <section id="memories" class="slide" aria-label="Memories">
     <p class="eyebrow">a few we kept</p>
     <h2 class="section-title">Some of my favorites</h2>
     <div id="reel" class="reel">
-      <figure class="mem-card"><div class="mem-photo ph1"></div><figcaption>replace with a photo</figcaption></figure>
-      <figure class="mem-card"><div class="mem-photo ph2"></div><figcaption>replace with a photo</figcaption></figure>
-      <figure class="mem-card"><div class="mem-photo ph3"></div><figcaption>replace with a photo</figcaption></figure>
-      <figure class="mem-card"><div class="mem-photo ph4"></div><figcaption>replace with a photo</figcaption></figure>
+      <figure class="mem-card"><div class="mem-photo ph1"></div><figcaption class="mem-caption" data-i="0">replace with a photo</figcaption></figure>
+      <figure class="mem-card"><div class="mem-photo ph2"></div><figcaption class="mem-caption" data-i="1">replace with a photo</figcaption></figure>
+      <figure class="mem-card"><div class="mem-photo ph3"></div><figcaption class="mem-caption" data-i="2">replace with a photo</figcaption></figure>
+      <figure class="mem-card"><div class="mem-photo ph4"></div><figcaption class="mem-caption" data-i="3">replace with a photo</figcaption></figure>
     </div>
   </section>
 
-  <!-- 4. Balloons -->
-  <section id="balloons" class="scene" aria-label="Pop a balloon">
+  <section id="balloons" class="slide" aria-label="Pop a balloon">
     <p class="eyebrow">for good measure</p>
     <h2 class="section-title">Pop a few, why not</h2>
     <div id="balloonField" class="balloon-field"></div>
   </section>
 
-  <!-- 5. Closing / wish -->
-  <section id="closing" class="scene" aria-label="Make a wish">
+  <section id="closing" class="slide" aria-label="Make a wish">
     <p class="eyebrow">last thing</p>
     <h2 class="section-title">Make a wish.<br>I already made mine — it's you, again.</h2>
     <div class="wish-row">
       <input id="wishInput" class="wish-input" type="text" placeholder="type a wish, watch it fly" aria-label="Type a wish">
       <button id="wishBtn" class="btn-ghost" type="button"><span>send it up</span></button>
     </div>
+    <button id="restartBtn" class="btn-ghost restart-btn" type="button"><span>watch it again</span></button>
     <p class="fine-print">made with care, one candle at a time</p>
   </section>
+
+  <nav id="slideNav" aria-hidden="true">
+    <div id="slideDots" class="slide-dots"></div>
+    <button id="nextBtn" class="next-btn" type="button" aria-label="Continue to the next part">
+      <span id="nextLabel">continue</span>
+      <span class="next-chevron" aria-hidden="true">↓</span>
+    </button>
+  </nav>
 
 </main>
 
