@@ -500,3 +500,7 @@ button{ font-family: var(--sans); cursor: pointer; }
 
 /* Global fix: [hidden] must always win over any component that sets display explicitly */
 [hidden]{ display: none !important; }
+
+
+/* Global fix: [hidden] must always win over any component that sets display explicitly */
+[hidden]{ display: none !important; }
