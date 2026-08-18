@@ -245,6 +245,7 @@
 
   if (decodedFromLink) {
     showCurtain();
+    editAgainBtn.hidden = true;
   } else {
     showEditor();
   }
@@ -641,7 +642,14 @@
         slide becomes active.
   ---------------------------------------------------------- */
   const onEnter = {
-    hero(){ /* candle is ready to blow as soon as it's visible */ },
+    hero(){
+      if (!micAttempted && !blown){
+        micAttempted = true;
+        micHint.hidden = false;
+        micHint.textContent = "asking for mic access…";
+        initMic();
+      }
+    },
     letterScene(){ /* waits on the seal */ },
     memories(){ setReady(); armAuto(4200); },
     balloons(){ spawnField(); },
