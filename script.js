@@ -4,18 +4,12 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ----------------------------------------------------------
-     0. Personalization. DEFAULTS is what you get with a plain
-        link. A real, personalized version arrives via a link
-        made on create.html, which packs everything into a
-        ?data= param — no server, no database needed.
-        {name} inside a letter line gets swapped for the name.
+     0. EDIT ME — everything personal lives here in one place.
+        {name} inside a letter line gets swapped for CONFIG.name.
+        You can also override the name per-link with ?name=Priya
   ---------------------------------------------------------- */
-  const DEFAULTS = {
-    name: "You",
-    heroEyebrow: "one candle, one wish",
-    heroTitle: "Blow it out<br>when you're ready.",
-    blowHint: "tip: allow your mic and actually blow — it works",
-    sealHint: "press the seal",
+  const CONFIG = {
+    name: new URLSearchParams(location.search).get("name") || "You",
     letter: [
       "Dear {name},",
       "Another year, and somehow you've made every part of it better just by being in it.",
@@ -23,53 +17,12 @@
       "Happy birthday. I hope this year is loud in the ways you love and quiet in the ways you need."
     ],
     signature: "— with love",
-    memoriesEyebrow: "a few we kept",
-    memoriesTitle: "Some of my favorites",
-    photos: ["", "", "", ""],
-    memoryCaptions: ["", "", "", ""],
-    balloonsEyebrow: "for good measure",
-    balloonsTitle: "Pop them all",
-    balloonMessage: ["you", "are", "so", "loved", "today", "✦"],
-    closingEyebrow: "last thing",
-    closingTitle: "Make a wish.<br>I already made mine — it's you, again.",
-    wishPlaceholder: "type a wish, watch it fly",
-    footerNote: "made with care, one candle at a time"
+    // Optional captions under the 4 memory photos. Leave any entry
+    // as "" to keep the "replace with a photo" placeholder text.
+    memoryCaptions: ["", "", "", ""]
   };
 
-  function decodeShareData(raw){
-    try{
-      const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
-      return JSON.parse(decodeURIComponent(escape(atob(b64))));
-    } catch(e){
-      console.warn("This link's data looked corrupted, showing the default version instead.", e);
-      return {};
-    }
-  }
-
-  function loadConfig(){
-    const params = new URLSearchParams(location.search);
-    const raw = params.get("data");
-    const shared = raw ? decodeShareData(raw) : {};
-    const cfg = Object.assign({}, DEFAULTS, shared);
-    const nameParam = params.get("name");
-    if (nameParam) cfg.name = nameParam; // quick override, still supported
-    return cfg;
-  }
-  const CONFIG = loadConfig();
-
   document.getElementById("curtainName").textContent = CONFIG.name;
-  document.getElementById("heroEyebrow").textContent = CONFIG.heroEyebrow;
-  document.getElementById("heroTitle").innerHTML = CONFIG.heroTitle;
-  document.getElementById("micHint").textContent = CONFIG.blowHint;
-  document.getElementById("sealHintText").textContent = CONFIG.sealHint;
-  document.getElementById("memoriesEyebrow").textContent = CONFIG.memoriesEyebrow;
-  document.getElementById("memoriesTitle").textContent = CONFIG.memoriesTitle;
-  document.getElementById("balloonsEyebrow").textContent = CONFIG.balloonsEyebrow;
-  document.getElementById("balloonsTitle").textContent = CONFIG.balloonsTitle;
-  document.getElementById("closingEyebrow").textContent = CONFIG.closingEyebrow;
-  document.getElementById("closingTitle").innerHTML = CONFIG.closingTitle;
-  document.getElementById("wishInput").placeholder = CONFIG.wishPlaceholder;
-  document.getElementById("footerNote").textContent = CONFIG.footerNote;
 
   function renderLetter(){
     const inner = document.getElementById("letterInner");
@@ -87,10 +40,6 @@
   }
   renderLetter();
 
-  document.querySelectorAll(".mem-photo").forEach(el => {
-    const i = Number(el.dataset.i);
-    if (CONFIG.photos[i]) el.style.backgroundImage = `url("${CONFIG.photos[i]}")`;
-  });
   document.querySelectorAll(".mem-caption").forEach(el => {
     const i = Number(el.dataset.i);
     if (CONFIG.memoryCaptions[i]) el.textContent = CONFIG.memoryCaptions[i];
@@ -378,62 +327,41 @@
   seal.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openLetter(); } });
 
   /* ----------------------------------------------------------
-     7. Balloons: pop them to reveal a hidden message, with a
-        live "n/total popped" counter — same mechanic as the
-        reference site's balloon screen.
+     7. Balloons: spawn + pop
   ---------------------------------------------------------- */
   const balloonField = document.getElementById("balloonField");
-  const balloonCounter = document.getElementById("balloonCounter");
-  const balloonWords = document.getElementById("balloonWords");
   const balloonColors = ["#E8583A", "#F2A340", "#D8B463", "#9A9DC4", "#FBF6EC"];
-  const balloonTotal = CONFIG.balloonMessage.length || 1;
   let balloonsSpawned = false;
   let poppedCount = 0;
 
-  function spawnBalloon(i, delay){
+  function spawnBalloon(delay){
     const el = document.createElement("div");
     el.className = "balloon";
-    el.dataset.i = i;
-    const color = balloonColors[i % balloonColors.length];
+    const color = balloonColors[Math.floor(Math.random() * balloonColors.length)];
     el.style.background = `radial-gradient(circle at 32% 28%, ${color}, ${color}cc)`;
-    el.style.left = (8 + (i * (78 / Math.max(1, balloonTotal - 1))) + (Math.random() * 6 - 3)) + "%";
+    el.style.left = Math.random() * 86 + "%";
     el.style.setProperty("--drift", (Math.random() * 80 - 40) + "px");
     el.style.animationDuration = (7 + Math.random() * 4) + "s";
     el.style.animationDelay = delay + "s";
-    el.addEventListener("click", () => popBalloon(el, i), { once: true });
-    el.addEventListener("animationend", () => {
-      if (!el.classList.contains("popped")){
-        el.remove();
-        spawnBalloon(i, 0); // missed it — send another one up
-      }
-    });
+    el.addEventListener("click", () => popBalloon(el), { once: true });
+    el.addEventListener("animationend", () => el.remove());
     balloonField.appendChild(el);
   }
 
-  function popBalloon(el, i){
+  function popBalloon(el){
     const rect = el.getBoundingClientRect();
     burst(rect.left + rect.width / 2, rect.top + rect.height / 2, { count: 34, speed: 5, upBias: 1 });
     el.classList.add("popped");
     setTimeout(() => el.remove(), 300);
-
-    const word = CONFIG.balloonMessage[i];
-    if (word && balloonWords && !balloonWords.querySelector(`[data-w="${i}"]`)){
-      const span = document.createElement("span");
-      span.className = "balloon-word";
-      span.dataset.w = i;
-      span.textContent = word;
-      balloonWords.appendChild(span);
-      poppedCount += 1;
-      if (balloonCounter) balloonCounter.textContent = `${poppedCount}/${balloonTotal} popped`;
-      if (poppedCount >= balloonTotal) setReady();
-    }
+    poppedCount += 1;
+    if (poppedCount >= 2) setReady();
   }
 
   function spawnField(){
     if (balloonsSpawned) return;
     balloonsSpawned = true;
-    if (balloonCounter) balloonCounter.textContent = `0/${balloonTotal} popped`;
-    for (let i = 0; i < balloonTotal; i++) spawnBalloon(i, i * 0.45);
+    for (let i = 0; i < 10; i++) spawnBalloon(i * 0.5);
+    setInterval(() => { if (balloonField.childElementCount < 6) spawnBalloon(0); }, 2200);
   }
 
   /* ----------------------------------------------------------
@@ -462,7 +390,7 @@
     hero(){ initMic(); },
     letterScene(){},
     memories(){ setReady(); armAuto(4500); },
-    balloons(){ spawnField(); armAuto(12000); },
+    balloons(){ spawnField(); armAuto(9000); },
     closing(){}
   };
 })();
