@@ -496,3 +496,7 @@ button{ font-family: var(--sans); cursor: pointer; }
   #sky{ transform: none !important; }
   .next-btn.ready{ animation: none; }
 }
+
+
+/* Global fix: [hidden] must always win over any component that sets display explicitly */
+[hidden]{ display: none !important; }

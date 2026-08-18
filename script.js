@@ -112,6 +112,13 @@
     document.querySelectorAll(".photo-slot").forEach((slot, i) => {
       const img = slot.querySelector(".photo-preview");
       const removeBtn = slot.querySelector(".photo-remove");
+
+    // Labels wrapping a hidden file input aren't reachable by Tab on
+    // their own — make the slot itself a real keyboard target.
+    slot.setAttribute("tabindex", "0");
+    slot.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " "){ e.preventDefault(); input.click(); }
+    });
       if (photoState[i]) {
         img.src = photoState[i]; img.hidden = false; removeBtn.hidden = false;
         slot.querySelector(".photo-plus").hidden = true;
