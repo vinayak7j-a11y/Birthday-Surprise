@@ -14,13 +14,60 @@
 
 <canvas id="sky" aria-hidden="true"></canvas>
 
-<section id="curtain" class="screen">
+<section id="editor" class="screen" hidden>
+  <div class="editor-inner">
+    <p class="eyebrow">build it for someone</p>
+    <h1 class="editor-title">Make it theirs.</h1>
+    <p class="editor-sub">Everything below changes what they'll actually see — no code, no redeploy.</p>
+
+    <label class="field">
+      <span class="field-label">Their name</span>
+      <input id="edName" class="field-input" type="text" placeholder="Priya" maxlength="40" autocomplete="off">
+    </label>
+
+    <label class="field">
+      <span class="field-label">The letter <span class="field-hint">one line per paragraph, use {name} anywhere</span></span>
+      <textarea id="edLetter" class="field-input field-textarea" rows="5" placeholder="Dear {name},&#10;Another year, and somehow you've made every part of it better...&#10;Happy birthday."></textarea>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Sign it as</span>
+      <input id="edSignature" class="field-input" type="text" placeholder="— with love" maxlength="40" autocomplete="off">
+    </label>
+
+    <div class="field">
+      <span class="field-label">Photos <span class="field-hint">up to 4, optional — shrunk automatically so the link stays shareable</span></span>
+      <div id="photoGrid" class="photo-grid">
+        <label class="photo-slot" data-i="0"><input type="file" accept="image/*" hidden><span class="photo-plus">+</span><img class="photo-preview" hidden alt=""><button type="button" class="photo-remove" hidden aria-label="Remove photo">×</button></label>
+        <label class="photo-slot" data-i="1"><input type="file" accept="image/*" hidden><span class="photo-plus">+</span><img class="photo-preview" hidden alt=""><button type="button" class="photo-remove" hidden aria-label="Remove photo">×</button></label>
+        <label class="photo-slot" data-i="2"><input type="file" accept="image/*" hidden><span class="photo-plus">+</span><img class="photo-preview" hidden alt=""><button type="button" class="photo-remove" hidden aria-label="Remove photo">×</button></label>
+        <label class="photo-slot" data-i="3"><input type="file" accept="image/*" hidden><span class="photo-plus">+</span><img class="photo-preview" hidden alt=""><button type="button" class="photo-remove" hidden aria-label="Remove photo">×</button></label>
+      </div>
+      <p id="photoSizeNote" class="fine-print"></p>
+    </div>
+
+    <button id="generateBtn" class="btn-primary" type="button"><span>get their link</span></button>
+
+    <div id="linkPanel" class="link-panel" hidden>
+      <span class="field-label">Their link — send them this</span>
+      <div class="link-row">
+        <input id="linkOutput" class="field-input" type="text" readonly>
+        <button id="copyLinkBtn" class="btn-ghost" type="button">copy</button>
+      </div>
+      <p class="fine-print">Anyone with this link sees exactly what you just built. Nothing is stored on a server.</p>
+      <button id="previewBtn" class="link-btn" type="button">see it yourself first →</button>
+    </div>
+  </div>
+</section>
+
+<section id="curtain" class="screen" hidden>
   <div class="curtain-inner">
     <p class="eyebrow">a little something for</p>
     <h1 class="curtain-name" id="curtainName">You</h1>
     <button id="enterBtn" class="btn-ghost" type="button">
       <span>open it</span>
     </button>
+    <button id="editAgainBtn" class="link-btn" type="button">edit this</button>
   </div>
 </section>
 
@@ -52,7 +99,8 @@
     <button id="blowBtn" class="btn-primary" type="button">
       <span id="blowLabel">hold to blow · or tap</span>
     </button>
-    <p id="micHint" class="fine-print">tip: allow your mic and actually blow — it works</p>
+    <button id="micBtn" class="link-btn" type="button">🎤 blow into your mic instead</button>
+    <p id="micHint" class="fine-print" hidden></p>
   </section>
 
   <section id="letterScene" class="slide" aria-label="A letter">

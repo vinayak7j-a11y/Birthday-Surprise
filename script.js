@@ -4,12 +4,30 @@
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   /* ----------------------------------------------------------
-     0. EDIT ME — everything personal lives here in one place.
-        {name} inside a letter line gets swapped for CONFIG.name.
-        You can also override the name per-link with ?name=Priya
+     0. CONFIG — where the personalization actually lives now.
+        Nobody has to edit this file anymore: the /#editor screen
+        (see section 0b below) builds this object from real form
+        input and packs it into the URL as #cfg=<base64 JSON>, so
+        the whole gift travels inside the link. ?name=Priya still
+        works as a quick override on top of a default/base link.
   ---------------------------------------------------------- */
-  const CONFIG = {
-    name: new URLSearchParams(location.search).get("name") || "You",
+  function toBase64Url(str){
+    return btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function fromBase64Url(b64){
+    b64 = b64.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    return decodeURIComponent(escape(atob(b64)));
+  }
+  function encodeConfig(cfg){
+    try { return toBase64Url(JSON.stringify(cfg)); } catch(e){ return ""; }
+  }
+  function decodeConfig(str){
+    try { return JSON.parse(fromBase64Url(str)); } catch(e){ return null; }
+  }
+
+  const DEFAULT_CONFIG = {
+    name: "You",
     letter: [
       "Dear {name},",
       "Another year, and somehow you've made every part of it better just by being in it.",
@@ -17,20 +35,28 @@
       "Happy birthday. I hope this year is loud in the ways you love and quiet in the ways you need."
     ],
     signature: "— with love",
-    // Optional captions under the 4 memory photos. Leave any entry
-    // as "" to keep the "replace with a photo" placeholder text.
-    memoryCaptions: ["", "", "", ""]
+    // Data-URL strings (or "") for up to 4 memory photos, plus captions.
+    photos: ["", "", "", ""],
+    captions: ["", "", "", ""]
   };
 
-  document.getElementById("curtainName").textContent = CONFIG.name;
+  const hashMatch = /^#cfg=(.+)$/.exec(location.hash);
+  const decodedFromLink = hashMatch ? decodeConfig(hashMatch[1]) : null;
+  let CONFIG = decodedFromLink
+    ? Object.assign({}, DEFAULT_CONFIG, decodedFromLink)
+    : Object.assign({}, DEFAULT_CONFIG);
+
+  const nameOverride = new URLSearchParams(location.search).get("name");
+  if (nameOverride && !decodedFromLink) CONFIG.name = nameOverride;
 
   function renderLetter(){
+    document.getElementById("curtainName").textContent = CONFIG.name;
     const inner = document.getElementById("letterInner");
     inner.innerHTML = "";
     CONFIG.letter.forEach(line => {
       const p = document.createElement("p");
       p.className = "letter-line";
-      p.textContent = line.replace("{name}", CONFIG.name);
+      p.textContent = line.replace(/\{name\}/g, CONFIG.name);
       inner.appendChild(p);
     });
     const sign = document.createElement("p");
@@ -38,12 +64,183 @@
     sign.textContent = CONFIG.signature;
     inner.appendChild(sign);
   }
-  renderLetter();
 
-  document.querySelectorAll(".mem-caption").forEach(el => {
-    const i = Number(el.dataset.i);
-    if (CONFIG.memoryCaptions[i]) el.textContent = CONFIG.memoryCaptions[i];
+  function applyPhotos(){
+    document.querySelectorAll(".mem-photo").forEach((el, i) => {
+      const src = CONFIG.photos && CONFIG.photos[i];
+      el.style.backgroundImage = src ? `url("${src}")` : "";
+    });
+    document.querySelectorAll(".mem-caption").forEach(el => {
+      const i = Number(el.dataset.i);
+      const caption = CONFIG.captions && CONFIG.captions[i];
+      el.textContent = caption || (CONFIG.photos[i] ? "" : "replace with a photo");
+    });
+  }
+
+  function applyConfig(){
+    renderLetter();
+    applyPhotos();
+  }
+  applyConfig();
+
+  /* ----------------------------------------------------------
+     0b. Editor screen — lets the sender write the letter, add
+         real photos, and generate a shareable link, all in the
+         browser. Shown first unless the URL already carries a
+         #cfg= link (i.e. someone opening a link they were sent).
+  ---------------------------------------------------------- */
+  const editorScreen = document.getElementById("editor");
+  const curtainScreen = document.getElementById("curtain");
+  const edName = document.getElementById("edName");
+  const edLetter = document.getElementById("edLetter");
+  const edSignature = document.getElementById("edSignature");
+  const generateBtn = document.getElementById("generateBtn");
+  const linkPanel = document.getElementById("linkPanel");
+  const linkOutput = document.getElementById("linkOutput");
+  const copyLinkBtn = document.getElementById("copyLinkBtn");
+  const previewBtn = document.getElementById("previewBtn");
+  const editAgainBtn = document.getElementById("editAgainBtn");
+  const photoSizeNote = document.getElementById("photoSizeNote");
+
+  let photoState = CONFIG.photos.slice();
+
+  function populateEditor(){
+    edName.value = CONFIG.name === "You" ? "" : CONFIG.name;
+    edLetter.value = CONFIG.letter.join("\n");
+    edSignature.value = CONFIG.signature === DEFAULT_CONFIG.signature ? "" : CONFIG.signature;
+    photoState = CONFIG.photos.slice();
+    document.querySelectorAll(".photo-slot").forEach((slot, i) => {
+      const img = slot.querySelector(".photo-preview");
+      const removeBtn = slot.querySelector(".photo-remove");
+      if (photoState[i]) {
+        img.src = photoState[i]; img.hidden = false; removeBtn.hidden = false;
+        slot.querySelector(".photo-plus").hidden = true;
+      } else {
+        img.hidden = true; removeBtn.hidden = true; img.removeAttribute("src");
+        slot.querySelector(".photo-plus").hidden = false;
+      }
+    });
+    linkPanel.hidden = true;
+  }
+
+  function showEditor(){
+    populateEditor();
+    editorScreen.hidden = false;
+    curtainScreen.hidden = true;
+  }
+  function showCurtain(){
+    applyConfig();
+    editorScreen.hidden = true;
+    curtainScreen.hidden = false;
+  }
+
+  // Shrink an uploaded photo client-side so the shareable link
+  // (which carries every photo as base64) stays a reasonable size.
+  function compressPhoto(file){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => {
+        img.onerror = reject;
+        img.onload = () => {
+          const maxSide = 640;
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.7));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  document.querySelectorAll(".photo-slot").forEach((slot, i) => {
+    const input = slot.querySelector('input[type="file"]');
+    const img = slot.querySelector(".photo-preview");
+    const plus = slot.querySelector(".photo-plus");
+    const removeBtn = slot.querySelector(".photo-remove");
+
+    input.addEventListener("change", async () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      plus.textContent = "…";
+      try {
+        const dataUrl = await compressPhoto(file);
+        photoState[i] = dataUrl;
+        img.src = dataUrl; img.hidden = false; removeBtn.hidden = false; plus.hidden = true;
+      } catch(e){
+        photoSizeNote.textContent = "Couldn't read that image — try a different one.";
+      } finally {
+        plus.textContent = "+";
+        updateSizeNote();
+      }
+    });
+
+    removeBtn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      photoState[i] = "";
+      img.hidden = true; removeBtn.hidden = true; plus.hidden = false; input.value = "";
+      updateSizeNote();
+    });
   });
+
+  function updateSizeNote(){
+    const bytes = photoState.reduce((sum, p) => sum + (p ? p.length * 0.75 : 0), 0);
+    if (bytes > 900 * 1024) {
+      photoSizeNote.textContent = "That's a big link — consider removing a photo if it doesn't open smoothly for them.";
+    } else if (bytes > 0) {
+      photoSizeNote.textContent = `Link size so far: about ${Math.round(bytes / 1024)}KB.`;
+    } else {
+      photoSizeNote.textContent = "";
+    }
+  }
+
+  function buildConfigFromEditor(){
+    const letterLines = edLetter.value.split("\n").map(s => s.trim()).filter(Boolean);
+    return {
+      name: edName.value.trim() || "You",
+      letter: letterLines.length ? letterLines : DEFAULT_CONFIG.letter,
+      signature: edSignature.value.trim() || DEFAULT_CONFIG.signature,
+      photos: photoState.slice(),
+      captions: DEFAULT_CONFIG.captions.slice()
+    };
+  }
+
+  generateBtn.addEventListener("click", () => {
+    CONFIG = buildConfigFromEditor();
+    const encoded = encodeConfig(CONFIG);
+    const url = location.origin + location.pathname + "#cfg=" + encoded;
+    history.replaceState(null, "", url);
+    linkOutput.value = url;
+    linkPanel.hidden = false;
+    linkPanel.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "nearest" });
+  });
+
+  copyLinkBtn.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(linkOutput.value);
+    } catch(e){
+      linkOutput.select();
+      document.execCommand("copy");
+    }
+    const original = copyLinkBtn.textContent;
+    copyLinkBtn.textContent = "copied ✓";
+    setTimeout(() => { copyLinkBtn.textContent = original; }, 1600);
+  });
+
+  previewBtn.addEventListener("click", showCurtain);
+  editAgainBtn.addEventListener("click", showEditor);
+
+  if (decodedFromLink) {
+    showCurtain();
+  } else {
+    showEditor();
+  }
 
   /* ----------------------------------------------------------
      1. Ambient starfield (canvas, behind everything)
@@ -204,6 +401,8 @@
 
   function showSlide(i){
     disarmAuto();
+    const leaving = SLIDES[idx];
+    if (leaving === "hero") stopMic();
     i = Math.max(0, Math.min(SLIDES.length - 1, i));
     idx = i;
     slideEls.forEach((el, n) => {
@@ -220,27 +419,18 @@
   nextBtn.addEventListener("click", nextSlide);
 
   /* ----------------------------------------------------------
-     4. Curtain → first slide
-  ---------------------------------------------------------- */
-  const curtain = document.getElementById("curtain");
-  const stage = document.getElementById("stage");
-  document.getElementById("enterBtn").addEventListener("click", () => {
-    curtain.classList.add("leaving");
-    stage.hidden = false;
-    setTimeout(() => { curtain.style.display = "none"; }, reduceMotion ? 0 : 950);
-    showSlide(0);
-  }, { once: true });
-
-  /* ----------------------------------------------------------
-     5. Candle: hold-to-blow (pointer) + microphone blow detection
+     4. Hero slide: the candle. Blown out by holding/tapping the
+        button, or by an opt-in microphone check (no surprise
+        permission prompt — the person has to press the mic
+        button first).
   ---------------------------------------------------------- */
   const heroSection = document.getElementById("hero");
   const blowBtn = document.getElementById("blowBtn");
   const blowLabel = document.getElementById("blowLabel");
+  const micBtn = document.getElementById("micBtn");
   const micHint = document.getElementById("micHint");
   const cakeSvg = document.getElementById("cakeSvg");
   let blown = false;
-  let micStarted = false;
   let holdTimer = null;
   let holdProgress = 0;
 
@@ -250,11 +440,12 @@
     heroSection.classList.add("blown");
     blowLabel.textContent = "made a wish ✓";
     blowBtn.disabled = true;
+    micBtn.hidden = true;
     const rect = cakeSvg.getBoundingClientRect();
     burst(rect.left + rect.width * 0.5, rect.top + rect.height * 0.29, { count: 90, speed: 8, upBias: 6 });
     stopMic();
     setReady();
-    armAuto(1500);
+    armAuto(1600);
   }
 
   function startHold(){
@@ -266,17 +457,22 @@
       if (holdProgress > 6) { extinguish(); clearInterval(holdTimer); }
     }, 60);
   }
-  function cancelHold(){ clearInterval(holdTimer); holdTimer = null; }
+  function cancelHold(){ clearInterval(holdTimer); }
 
   blowBtn.addEventListener("pointerdown", startHold);
   blowBtn.addEventListener("pointerup", cancelHold);
   blowBtn.addEventListener("pointerleave", cancelHold);
   blowBtn.addEventListener("click", () => { if (holdProgress <= 6) extinguish(); });
 
-  let audioCtx, analyser, micStream, micRAF;
+  // Microphone-based blow detection — opt-in only, triggered by micBtn.
+  let audioCtx, analyser, micStream, micRAF, micActive = false;
   async function initMic(){
-    if (micStarted || !navigator.mediaDevices?.getUserMedia) return;
-    micStarted = true;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      micHint.hidden = false;
+      micHint.textContent = "mic isn't available on this browser — hold the button instead";
+      resetMicBtn();
+      return;
+    }
     try{
       micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -285,29 +481,56 @@
       analyser.fftSize = 512;
       source.connect(analyser);
       const data = new Uint8Array(analyser.frequencyBinCount);
+      micHint.hidden = false;
       micHint.textContent = "listening... go on, blow";
       let loudFrames = 0;
       const check = () => {
         if (blown) return;
         analyser.getByteFrequencyData(data);
         const avg = data.reduce((a, b) => a + b, 0) / data.length;
+        // require a short sustained gust, not a single spike, to avoid false triggers
         loudFrames = avg > 40 ? loudFrames + 1 : 0;
         if (loudFrames >= 3) extinguish();
         micRAF = requestAnimationFrame(check);
       };
       check();
     } catch(e){
+      micHint.hidden = false;
       micHint.textContent = "mic unavailable — hold the button instead";
+      resetMicBtn();
     }
+  }
+  function resetMicBtn(){
+    micActive = false;
+    micBtn.disabled = false;
+    micBtn.textContent = "🎤 blow into your mic instead";
   }
   function stopMic(){
     cancelAnimationFrame(micRAF);
-    if (micStream) micStream.getTracks().forEach(t => t.stop());
-    if (audioCtx) audioCtx.close();
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+    if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  }
+  micBtn.addEventListener("click", () => {
+    if (micActive || blown) return;
+    micActive = true;
+    micBtn.disabled = true;
+    micBtn.textContent = "listening…";
+    initMic();
+  });
+
+  function resetHero(){
+    blown = false;
+    heroSection.classList.remove("blown");
+    blowLabel.textContent = "hold to blow · or tap";
+    blowBtn.disabled = false;
+    micBtn.hidden = false;
+    micHint.hidden = true;
+    stopMic();
+    resetMicBtn();
   }
 
   /* ----------------------------------------------------------
-     6. Wax seal → letter
+     5. Letter slide: wax seal → letter
   ---------------------------------------------------------- */
   const seal = document.getElementById("seal");
   const sealHint = document.querySelector(".seal-hint");
@@ -320,19 +543,25 @@
     const rect = seal.getBoundingClientRect();
     burst(rect.left + rect.width / 2, rect.top + rect.height / 2, { count: 26, speed: 4, upBias: 1 });
     setReady();
-    // give them time to actually read it before auto-advancing
-    armAuto(1400 + CONFIG.letter.length * 1500);
+    armAuto(3200);
   }
   seal.addEventListener("click", openLetter);
   seal.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); openLetter(); } });
 
+  function resetLetter(){
+    seal.classList.remove("opened");
+    if (sealHint) sealHint.classList.remove("hidden");
+    letter.classList.remove("open");
+  }
+
   /* ----------------------------------------------------------
-     7. Balloons: spawn + pop
+     6. Balloons slide: spawn + pop
   ---------------------------------------------------------- */
   const balloonField = document.getElementById("balloonField");
   const balloonColors = ["#E8583A", "#F2A340", "#D8B463", "#9A9DC4", "#FBF6EC"];
   let balloonsSpawned = false;
-  let poppedCount = 0;
+  let balloonSpawnInterval = null;
+  let poppedOnce = false;
 
   function spawnBalloon(delay){
     const el = document.createElement("div");
@@ -353,22 +582,36 @@
     burst(rect.left + rect.width / 2, rect.top + rect.height / 2, { count: 34, speed: 5, upBias: 1 });
     el.classList.add("popped");
     setTimeout(() => el.remove(), 300);
-    poppedCount += 1;
-    if (poppedCount >= 2) setReady();
+    if (!poppedOnce){
+      poppedOnce = true;
+      setReady();
+      armAuto(3400);
+    }
   }
 
   function spawnField(){
     if (balloonsSpawned) return;
     balloonsSpawned = true;
     for (let i = 0; i < 10; i++) spawnBalloon(i * 0.5);
-    setInterval(() => { if (balloonField.childElementCount < 6) spawnBalloon(0); }, 2200);
+    balloonSpawnInterval = setInterval(() => {
+      if (balloonField.childElementCount < 6) spawnBalloon(0);
+    }, 2200);
+  }
+
+  function resetBalloons(){
+    clearInterval(balloonSpawnInterval);
+    balloonField.innerHTML = "";
+    balloonsSpawned = false;
+    poppedOnce = false;
   }
 
   /* ----------------------------------------------------------
-     8. Wish input: send it up as a little firework
+     7. Closing slide: wish input + restart
   ---------------------------------------------------------- */
   const wishInput = document.getElementById("wishInput");
   const wishBtn = document.getElementById("wishBtn");
+  const restartBtn = document.getElementById("restartBtn");
+
   function sendWish(){
     if (!wishInput.value.trim()) return;
     const rect = wishBtn.getBoundingClientRect();
@@ -379,18 +622,36 @@
   wishBtn.addEventListener("click", sendWish);
   wishInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendWish(); });
 
-  document.getElementById("restartBtn").addEventListener("click", () => {
-    location.href = location.pathname + location.search;
+  restartBtn.addEventListener("click", () => {
+    resetHero();
+    resetLetter();
+    resetBalloons();
+    showSlide(0);
   });
 
   /* ----------------------------------------------------------
-     9. What happens when each slide becomes active
+     8. Per-slide "on enter" hooks — what happens the moment a
+        slide becomes active.
   ---------------------------------------------------------- */
   const onEnter = {
-    hero(){ initMic(); },
-    letterScene(){},
-    memories(){ setReady(); armAuto(4500); },
-    balloons(){ spawnField(); armAuto(9000); },
-    closing(){}
+    hero(){ /* candle is ready to blow as soon as it's visible */ },
+    letterScene(){ /* waits on the seal */ },
+    memories(){ setReady(); armAuto(4200); },
+    balloons(){ spawnField(); },
+    closing(){ /* no auto-advance — this is the end */ }
   };
+
+  /* ----------------------------------------------------------
+     9. Curtain → first slide
+  ---------------------------------------------------------- */
+  const curtain = document.getElementById("curtain");
+  const stage = document.getElementById("stage");
+  const enterBtn = document.getElementById("enterBtn");
+
+  enterBtn.addEventListener("click", () => {
+    curtain.classList.add("leaving");
+    stage.hidden = false;
+    setTimeout(() => { curtain.hidden = true; }, reduceMotion ? 0 : 950);
+    showSlide(0);
+  });
 })();

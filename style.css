@@ -111,6 +111,68 @@ button{ font-family: var(--sans); cursor: pointer; }
 }
 
 /* ============================================================
+   EDITOR — the "make it theirs" screen, shown before the curtain
+   whenever there's no personalized config in the URL yet.
+   ============================================================ */
+#editor{ overflow-y: auto; align-items: flex-start; padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.editor-inner{ max-width: 30rem; width: 100%; text-align: left; margin: 0 auto; }
+.editor-inner .eyebrow, .editor-title{ text-align: center; }
+.editor-title{ font-size: clamp(2rem, 7vw, 2.8rem); margin-bottom: 0.6rem; }
+.editor-sub{ text-align: center; color: var(--mist); font-size: 0.92rem; margin-bottom: var(--space-4); }
+
+.field{ display: block; margin-bottom: var(--space-3); }
+.field-label{
+  display: block; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--mist); margin-bottom: 0.5rem;
+}
+.field-hint{ text-transform: none; letter-spacing: normal; color: var(--mist-dim); font-size: 0.75rem; display: block; margin-top: 2px; }
+.field-input{
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(216,180,99,0.3);
+  border-radius: 14px;
+  padding: 0.85rem 1.1rem;
+  color: var(--paper);
+  font-family: var(--sans);
+  font-size: 0.95rem;
+}
+.field-input::placeholder{ color: var(--mist-dim); }
+.field-input:focus{ outline: none; border-color: var(--gold); }
+.field-textarea{ resize: vertical; line-height: 1.55; font-family: var(--serif); }
+
+.photo-grid{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; }
+.photo-slot{
+  position: relative; aspect-ratio: 1; border-radius: 14px;
+  border: 1.5px dashed rgba(216,180,99,0.4);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; overflow: hidden;
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+.photo-slot:hover{ border-color: var(--gold); background: rgba(216,180,99,0.06); }
+.photo-plus{ font-size: 1.6rem; color: var(--mist-dim); font-weight: 300; }
+.photo-preview{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.photo-remove{
+  position: absolute; top: 4px; right: 4px; width: 22px; height: 22px;
+  border-radius: 50%; background: rgba(11,12,28,0.75); color: var(--paper);
+  border: none; font-size: 1rem; line-height: 1; display: flex; align-items: center; justify-content: center;
+}
+
+.link-panel{ margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid rgba(216,180,99,0.2); }
+.link-row{ display: flex; gap: 0.5rem; }
+.link-row .field-input{ font-size: 0.8rem; }
+.link-row .btn-ghost{ padding: 0.85rem 1.4rem; flex-shrink: 0; }
+
+.link-btn{
+  display: block; margin: var(--space-2) auto 0; background: none; border: none;
+  color: var(--mist); font-size: 0.8rem; text-decoration: underline; text-underline-offset: 3px;
+  padding: 0.5rem;
+}
+.link-btn:hover{ color: var(--gold); }
+
+.editor-inner .btn-primary{ display: block; width: 100%; margin-top: var(--space-2); }
+
+/* ============================================================
    BUTTONS
    ============================================================ */
 .btn-primary{
@@ -313,7 +375,9 @@ button{ font-family: var(--sans); cursor: pointer; }
 .mem-photo.ph2{ background: linear-gradient(135deg, var(--gold), var(--ink-soft)); }
 .mem-photo.ph3{ background: linear-gradient(135deg, var(--mist), var(--ink-soft)); }
 .mem-photo.ph4{ background: linear-gradient(135deg, var(--flame-outer), var(--ink)); }
+.mem-photo{ background-size: cover; background-position: center; }
 .mem-card figcaption{ font-size: 0.75rem; color: var(--mist-dim); padding: var(--space-1) 0.25rem 0.25rem; }
+.mem-card figcaption:empty{ display: none; }
 
 /* ============================================================
    BALLOONS
@@ -424,6 +488,7 @@ button{ font-family: var(--sans); cursor: pointer; }
 @media (max-width: 420px){
   .slide{ padding: var(--space-4) var(--space-2) 7rem; }
   .mem-card{ width: 180px; }
+  .link-row{ flex-direction: column; }
 }
 
 @media (prefers-reduced-motion: reduce){
