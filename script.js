@@ -641,15 +641,8 @@
      8. Per-slide "on enter" hooks — what happens the moment a
         slide becomes active.
   ---------------------------------------------------------- */
-  const onEnter = {
-    hero(){
-      if (!micAttempted && !blown){
-        micAttempted = true;
-        micHint.hidden = false;
-        micHint.textContent = "asking for mic access…";
-        initMic();
-      }
-    },
+    const onEnter = {
+    hero(){ /* mic is opt-in via micBtn — nothing to do on entry */ },
     letterScene(){ /* waits on the seal */ },
     memories(){ setReady(); armAuto(4200); },
     balloons(){ spawnField(); },
