@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Make one — For You</title>
+<meta name="description" content="Build a personalized birthday surprise and get a link to send.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,450;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{ overflow-y: auto; height: auto; min-height: 100vh; }
+  .builder{ max-width: 40rem; margin: 0 auto; padding: var(--space-4) var(--space-3) 6rem; position: relative; z-index: 5; }
+  .builder h1{ font-size: clamp(1.9rem, 6vw, 2.6rem); margin-bottom: var(--space-1); }
+  .builder .lede{ color: var(--mist); margin-bottom: var(--space-4); }
+  .field{ margin-bottom: var(--space-3); text-align: left; }
+  .field label{ display: block; font-size: 0.78rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; }
+  .field .hint{ display: block; font-size: 0.78rem; color: var(--mist-dim); margin-top: 0.4rem; }
+  .field input[type="text"], .field textarea{
+    width: 100%;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(216,180,99,0.3);
+    border-radius: 12px;
+    padding: 0.8rem 1rem;
+    color: var(--paper);
+    font-family: var(--sans);
+    font-size: 0.95rem;
+  }
+  .field textarea{ min-height: 8rem; resize: vertical; line-height: 1.6; }
+  .field input:focus, .field textarea:focus{ outline: none; border-color: var(--gold); }
+  .photo-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  @media (max-width: 480px){ .photo-grid{ grid-template-columns: 1fr; } }
+  #resultBox{ margin-top: var(--space-4); padding: var(--space-3); background: rgba(255,255,255,0.05); border: 1px solid rgba(216,180,99,0.3); border-radius: 14px; }
+  #resultBox[hidden]{ display: none; }
+  #resultUrl{ width: 100%; background: rgba(0,0,0,0.25); border: 1px solid rgba(216,180,99,0.3); border-radius: 10px; padding: 0.7rem 0.9rem; color: var(--paper); font-family: var(--sans); font-size: 0.85rem; margin-bottom: var(--space-2); }
+  .result-actions{ display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .field-error{ color: var(--ember); font-size: 0.8rem; margin-top: var(--space-1); display: none; }
+  .field-error.show{ display: block; }
+</style>
+</head>
+<body>
+
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<div class="builder">
+  <p class="eyebrow">build a surprise</p>
+  <h1>Make one for someone</h1>
+  <p class="lede">Fill this in, get a link, send it. No account, nothing to install — the whole thing lives in the link itself.</p>
+
+  <form id="builderForm">
+    <div class="field">
+      <label for="fName">Their name</label>
+      <input type="text" id="fName" placeholder="e.g. Priya" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="fLetter">Your letter — one paragraph per line</label>
+      <textarea id="fLetter" placeholder="Dear {name},&#10;Another year, and somehow you've made every part of it better just by being in it.&#10;Happy birthday.">Dear {name},
+Another year, and somehow you've made every part of it better just by being in it.
+This page isn't much — a candle, a few photos, a little noise. But I wanted you to have something that was only yours today.
+Happy birthday. I hope this year is loud in the ways you love and quiet in the ways you need.</textarea>
+      <span class="hint">Type {name} anywhere and it'll be swapped for their name automatically.</span>
+    </div>
+
+    <div class="field">
+      <label for="fSign">Sign off as</label>
+      <input type="text" id="fSign" placeholder="— with love" value="— with love" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label for="fBalloons">Hidden message in the balloons — one word per balloon</label>
+      <input type="text" id="fBalloons" placeholder="you are so loved today" value="you are so loved today" autocomplete="off">
+      <span class="hint">Each word appears when they pop a balloon. Keep it to 4–8 words.</span>
+    </div>
+
+    <div class="field">
+      <label>Photos (optional) — paste image links</label>
+      <div class="photo-grid">
+        <input type="text" id="fPhoto1" placeholder="photo 1 URL">
+        <input type="text" id="fPhoto2" placeholder="photo 2 URL">
+        <input type="text" id="fPhoto3" placeholder="photo 3 URL">
+        <input type="text" id="fPhoto4" placeholder="photo 4 URL">
+      </div>
+      <span class="hint">Leave any blank to keep the default color placeholder for that card. Photos need to already be hosted somewhere public (e.g. a link from Google Photos, Imgur, etc.) — this page can't upload files.</span>
+    </div>
+
+    <button type="button" id="genBtn" class="btn-primary" style="width:100%; margin-top: var(--space-2);">
+      <span>create the link</span>
+    </button>
+    <p id="formError" class="field-error">Add at least their name or one line of your letter first.</p>
+  </form>
+
+  <div id="resultBox" hidden>
+    <label for="resultUrl" style="display:block; font-size:0.78rem; letter-spacing:0.05em; text-transform:uppercase; color: var(--gold); margin-bottom:0.5rem;">Their link</label>
+    <input id="resultUrl" type="text" readonly>
+    <div class="result-actions">
+      <button type="button" id="copyBtn" class="btn-ghost">copy link</button>
+      <a id="previewLink" href="#" target="_blank" rel="noopener" class="btn-ghost" style="text-decoration:none; display:inline-flex; align-items:center;">preview it</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const sky = document.getElementById("sky");
+  const ctx = sky.getContext("2d");
+  function size(){ sky.width = innerWidth * devicePixelRatio; sky.height = innerHeight * devicePixelRatio; sky.style.width = innerWidth + "px"; sky.style.height = innerHeight + "px"; }
+  size(); addEventListener("resize", size);
+  ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  const stars = Array.from({length: Math.floor((innerWidth*innerHeight)/12000)}, () => ({x: Math.random()*innerWidth, y: Math.random()*innerHeight, r: Math.random()*1.2+0.2}));
+  ctx.fillStyle = "#F4EDE0";
+  stars.forEach(s => { ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); });
+
+  function b64EncodeUnicode(str){
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (m, p) => String.fromCharCode("0x" + p)));
+  }
+
+  document.getElementById("genBtn").addEventListener("click", () => {
+    const name = document.getElementById("fName").value.trim();
+    const letterLines = document.getElementById("fLetter").value
+      .split("\n").map(l => l.trim()).filter(Boolean);
+    const errorEl = document.getElementById("formError");
+
+    if (!name && letterLines.length === 0){
+      errorEl.classList.add("show");
+      return;
+    }
+    errorEl.classList.remove("show");
+
+    const balloonWords = document.getElementById("fBalloons").value.trim();
+    const photos = [1,2,3,4].map(n => document.getElementById("fPhoto" + n).value.trim());
+
+    const data = {};
+    if (name) data.name = name;
+    if (letterLines.length) data.letter = letterLines;
+    const sign = document.getElementById("fSign").value.trim();
+    if (sign) data.signature = sign;
+    if (balloonWords) data.balloonMessage = balloonWords.split(/\s+/).slice(0, 8);
+    if (photos.some(Boolean)) data.photos = photos;
+
+    const encoded = b64EncodeUnicode(JSON.stringify(data))
+      .replace(/\+/g, "-").replace(/\//g, "_");
+
+    const url = new URL("index.html", location.href);
+    url.searchParams.set("data", encoded);
+
+    document.getElementById("resultUrl").value = url.toString();
+    document.getElementById("previewLink").href = url.toString();
+    document.getElementById("resultBox").hidden = false;
+    document.getElementById("resultBox").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", async () => {
+    const input = document.getElementById("resultUrl");
+    input.select();
+    input.setSelectionRange(0, 99999);
+    try{
+      await navigator.clipboard.writeText(input.value);
+      const btn = document.getElementById("copyBtn");
+      const original = btn.textContent;
+      btn.textContent = "copied ✓";
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    } catch(e){
+      // clipboard blocked in some in-app browsers — text is already
+      // selected above, so the user can still copy manually
+    }
+  });
+})();
+</script>
+</body>
+</html>
